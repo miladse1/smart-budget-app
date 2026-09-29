@@ -27,6 +27,7 @@ from app.schemas import (
     ExchangeIn,
     ItemOut,
     LinkTokenOut,
+    OnboardingUpdate,
     OverspendOut,
     SettingsOut,
     SettingsUpdate,
@@ -72,6 +73,8 @@ def app_info(user: User = Depends(current_user), db: Session = Depends(get_db)) 
         plaid_configured=settings.plaid_configured,
         currency=user.preference.currency if user.preference else "CAD",
         budget_start_day=start_day,
+        onboarding_completed=user.preference.onboarding_completed if user.preference else False,
+        goal=user.preference.goal if user.preference else None,
         month=month,
         year=year,
         demo_loaded=demo_loaded,
@@ -368,6 +371,8 @@ def get_settings(user: User = Depends(current_user), db: Session = Depends(get_d
         plaid_env=settings.plaid_env,
         plaid_configured=settings.plaid_configured,
         demo_loaded=demo_loaded,
+        onboarding_completed=user.preference.onboarding_completed if user.preference else False,
+        goal=user.preference.goal if user.preference else None,
     )
 
 
@@ -381,6 +386,22 @@ def update_settings(
         raise HTTPException(status_code=404, detail="Settings not found.")
     user.preference.currency = payload.currency
     user.preference.budget_start_day = payload.budget_start_day
+    db.commit()
+    return get_settings(user, db)
+
+
+@router.put("/onboarding", response_model=SettingsOut)
+def update_onboarding(
+    payload: OnboardingUpdate,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> SettingsOut:
+    """Record whether first-run setup is finished and which goal was chosen. Stores no personal data."""
+    if user.preference is None:
+        raise HTTPException(status_code=404, detail="Settings not found.")
+    user.preference.onboarding_completed = payload.completed
+    if payload.goal is not None:
+        user.preference.goal = payload.goal
     db.commit()
     return get_settings(user, db)
 

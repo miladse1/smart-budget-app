@@ -1,6 +1,26 @@
+import { ChevronRight } from "lucide-react";
 import { CategoryIcon } from "./CategoryIcon";
-import { barWidth, formatMoney, percentUsed, remainingAmount, statusFor, toCents } from "../lib/money";
+import { ProgressBar, type Status } from "./ui";
+import { formatMoney, percentUsed, remainingAmount, statusFor, toCents } from "../lib/money";
 
+export const STATUS_TEXT: Record<Status, string> = {
+  ok: "text-muted",
+  near: "text-warning",
+  over: "text-danger",
+};
+
+export function remainingLabelFor(limit: string, spent: string, currency: string): string {
+  const remaining = remainingAmount(limit, spent);
+  const cents = toCents(remaining);
+  if (cents < 0) return `${formatMoney(remaining.slice(1), currency)} over`;
+  if (cents === 0) return "At limit";
+  return `${formatMoney(remaining, currency)} left`;
+}
+
+/**
+ * One category budget: name and remaining amount on top, progress below, spent of limit
+ * and percent underneath. Rendered as a button when it opens an editor.
+ */
 export function BudgetRow({
   name,
   icon,
@@ -8,6 +28,7 @@ export function BudgetRow({
   spent,
   limit,
   currency,
+  onOpen,
 }: {
   name: string;
   icon: string;
@@ -15,42 +36,47 @@ export function BudgetRow({
   spent: string;
   limit: string;
   currency: string;
+  onOpen?: () => void;
 }) {
-  const remaining = remainingAmount(limit, spent);
   const percent = percentUsed(spent, limit);
   const status = statusFor(spent, limit);
-  const remainingCents = toCents(remaining);
-  let remainingLabel = `${formatMoney(remaining, currency)} left`;
-  if (remainingCents < 0) {
-    remainingLabel = `${formatMoney(remaining.slice(1), currency)} over`;
-  } else if (remainingCents === 0) {
-    remainingLabel = "At limit";
-  }
-  const barColour = status === "over" ? "#9f2d2d" : status === "near" ? "#8c6d2d" : colour;
+  const remainingLabel = remainingLabelFor(limit, spent, currency);
+  const statusPrefix = status === "over" ? "Over budget · " : status === "near" && remainingLabel !== "At limit" ? "Near limit · " : "";
 
-  return (
-    <div className="border-b border-line py-2 last:border-b-0">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <CategoryIcon name={icon} colour={colour} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{name}</p>
-            <p className="text-xs text-muted">
-              {formatMoney(spent, currency)} of {formatMoney(limit, currency)}
-            </p>
-          </div>
+  const body = (
+    <>
+      <CategoryIcon name={name} icon={icon} colour={colour} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="truncate text-[15px] font-semibold tracking-[-0.01em]">{name}</p>
+          <p className={`tnum shrink-0 text-[15px] font-semibold ${status === "over" ? "text-danger" : "text-ink"}`}>{remainingLabel}</p>
         </div>
-        <div className="text-right">
-          <p className={`text-sm font-medium ${status === "over" ? "text-danger" : "text-ink"}`}>{remainingLabel}</p>
-          <p className={`text-xs ${status === "near" ? "text-gold" : status === "over" ? "text-danger" : "text-muted"}`}>
-            {status === "near" ? "Near limit · " : status === "over" ? "Over budget · " : ""}
+        <ProgressBar percent={percent} status={status} label={`${name} budget used`} className="mt-2 h-1.5" />
+        <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+          <p className="tnum truncate text-muted">
+            {formatMoney(spent, currency)} of {formatMoney(limit, currency)}
+          </p>
+          <p className={`tnum shrink-0 font-medium ${STATUS_TEXT[status]}`}>
+            {statusPrefix}
             {percent}%
           </p>
         </div>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-paper">
-        <div className="h-full rounded-full" style={{ width: `${barWidth(percent)}%`, backgroundColor: barColour }} />
-      </div>
-    </div>
+      {onOpen && <ChevronRight size={18} aria-hidden="true" className="shrink-0 text-subtle" />}
+    </>
   );
+
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${name}: ${remainingLabel}, ${percent}% used. Edit budget`}
+        className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-surface-2/60 active:bg-surface-2"
+      >
+        {body}
+      </button>
+    );
+  }
+  return <div className="flex items-center gap-3.5 px-4 py-3.5">{body}</div>;
 }

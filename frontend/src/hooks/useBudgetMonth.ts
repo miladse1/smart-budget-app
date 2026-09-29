@@ -14,7 +14,8 @@ export function useBudgetMonth() {
   const month = Number(monthText);
 
   function setValue(next: string) {
-    const updated = new URLSearchParams(params);
+    // Start from the live URL so a filter written in the same tick is not overwritten.
+    const updated = new URLSearchParams(window.location.search);
     updated.set("month", next);
     setParams(updated, { replace: true });
   }

@@ -40,3 +40,12 @@ describe("budget money", () => {
     expect(toCents("-18.50")).toBe(-1850);
   });
 });
+
+describe("period dates", () => {
+  it("formats a calendar day without shifting time zones", async () => {
+    const { formatDay, daysLeftInPeriod } = await import("./money");
+    expect(formatDay("2026-09-01")).toBe("Sep 1");
+    expect(daysLeftInPeriod("2026-09-01", "2026-09-30", new Date(2026, 8, 29))).toBe(2);
+    expect(daysLeftInPeriod("2026-09-01", "2026-09-30", new Date(2026, 9, 2))).toBeNull();
+  });
+});

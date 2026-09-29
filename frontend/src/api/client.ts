@@ -4,6 +4,7 @@ import type {
   Category,
   Dashboard,
   DemoResult,
+  Goal,
   Institution,
   Settings,
   SyncResult,
@@ -75,12 +76,13 @@ export const api = {
     categoryId?: number;
     accountId?: number;
     search?: string;
+    pageSize?: number;
   }) => {
     const params = new URLSearchParams({
       year: String(query.year),
       month: String(query.month),
       page: String(query.page),
-      page_size: "10",
+      page_size: String(query.pageSize ?? 10),
     });
     if (query.categoryId) params.set("category_id", String(query.categoryId));
     if (query.accountId) params.set("account_id", String(query.accountId));
@@ -98,6 +100,11 @@ export const api = {
     request<Settings>("/api/settings", {
       method: "PUT",
       body: JSON.stringify({ currency, budget_start_day: budgetStartDay }),
+    }),
+  updateOnboarding: (completed: boolean, goal?: Goal) =>
+    request<Settings>("/api/onboarding", {
+      method: "PUT",
+      body: JSON.stringify(goal ? { completed, goal } : { completed }),
     }),
   createLinkToken: () => request<{ link_token: string; expiration: string | null }>("/api/plaid/link-token", { method: "POST" }),
   exchangePublicToken: (publicToken: string, institutionName: string) =>

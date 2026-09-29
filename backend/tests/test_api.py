@@ -213,3 +213,22 @@ def test_clear_demo_keeps_a_real_transaction(db, client):
     db.expire_all()
     remaining = db.query(Transaction).all()
     assert [txn.merchant_name for txn in remaining] == ["Real Cafe"]
+
+
+def test_onboarding_status_persists_and_can_restart(client):
+    assert client.get("/api/app").json()["onboarding_completed"] is False
+
+    done = client.put("/api/onboarding", json={"completed": True, "goal": "saving"})
+    assert done.status_code == 200
+    assert done.json()["onboarding_completed"] is True
+    assert client.get("/api/app").json()["goal"] == "saving"
+    assert client.get("/api/settings").json()["onboarding_completed"] is True
+
+    restart = client.put("/api/onboarding", json={"completed": False})
+    assert restart.json()["onboarding_completed"] is False
+    assert restart.json()["goal"] == "saving"
+
+
+def test_onboarding_rejects_unknown_goal(client):
+    response = client.put("/api/onboarding", json={"completed": True, "goal": "lottery"})
+    assert response.status_code == 422

@@ -26,3 +26,8 @@ frontend/coverage/
 .idea/
 .vscode/
 *.log
+
+# Browser automation and test output
+.playwright-cli/
+test-results/
+playwright-report/

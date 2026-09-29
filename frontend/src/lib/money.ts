@@ -104,3 +104,26 @@ export function formatWhen(value: string | null): string {
 export function monthLabel(year: number, month: number): string {
   return new Date(year, month - 1, 1).toLocaleString("en-CA", { month: "long", year: "numeric" });
 }
+
+function parseDay(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+/** "2026-09-29" -> "Sep 29". Parsed as a local calendar day, not UTC. */
+export function formatDay(value: string, withYear = false): string {
+  const date = parseDay(value);
+  if (!date) return value;
+  return date.toLocaleDateString("en-CA", { month: "short", day: "numeric", ...(withYear ? { year: "numeric" } : {}) });
+}
+
+/** Days left in a budget period including today, or null when today is outside it. */
+export function daysLeftInPeriod(start: string, end: string, today = new Date()): number | null {
+  const from = parseDay(start);
+  const to = parseDay(end);
+  if (!from || !to) return null;
+  const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (day < from || day > to) return null;
+  return Math.round((to.getTime() - day.getTime()) / 86_400_000) + 1;
+}

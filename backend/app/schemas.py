@@ -27,6 +27,8 @@ class AppInfo(APIModel):
     plaid_configured: bool
     currency: str
     budget_start_day: int
+    onboarding_completed: bool = False
+    goal: str | None = None
     month: int
     year: int
     demo_loaded: bool
@@ -153,6 +155,13 @@ class SettingsOut(APIModel):
     plaid_env: str
     plaid_configured: bool
     demo_loaded: bool
+    onboarding_completed: bool = False
+    goal: str | None = None
+
+
+class OnboardingUpdate(BaseModel):
+    completed: bool
+    goal: str | None = Field(default=None, pattern="^(spending|saving|tracking|all)$")
 
 
 class SettingsUpdate(BaseModel):

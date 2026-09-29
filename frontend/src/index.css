@@ -1,35 +1,432 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-paper: #f6f4ef;
-  --color-card: #fffcf8;
-  --color-ink: #1c1917;
-  --color-muted: #78716c;
-  --color-line: #e6e2d9;
-  --color-forest: #1b4332;
-  --color-forest-dark: #132e23;
-  --color-sage: #8aa387;
-  --color-gold: #8c6d2d;
-  --color-gold-soft: #f3ead7;
-  --color-danger: #9f2d2d;
-  --color-danger-soft: #f8e8e6;
+/*
+ * BudgetFlow tokens. Raw values live on :root so the dark theme can swap them;
+ * @theme inline exposes them to Tailwind (bg-surface, text-muted, bg-forest ...).
+ * The theme is resolved to data-theme="light" | "dark" on <html> by lib/theme.ts
+ * (system preference by default, overridable in Settings).
+ *
+ * Shape rule: hero and sheets 28px, cards 20px, controls 14px, chips and buttons full pill.
+ * Colour rule: forest is the brand, lime only means "good / on track / progress",
+ * amber and red are budget status, category colours are identity only.
+ */
+:root {
+  color-scheme: light;
+  --canvas: #faf9f5;
+  --surface: #ffffff;
+  --surface-2: #f3f2ed;
+  --surface-3: #e9e8e2;
+  --ink: #121212;
+  --muted: #5c5b56;
+  --subtle: #6f6e68;
+  --line: #ebe9e2;
+  --line-strong: #d6d4cc;
+
+  /* Forest is the brand mark and link colour only; black carries primary actions. */
+  --forest: #173d2f;
+  --forest-2: #1f4d3b;
+  --forest-ink: #f2f1eb;
+  --forest-muted: #b5c7bb;
+  --accent: #121212;
+  --accent-hover: #2b2b29;
+  --accent-fg: #fbfaf6;
+  --accent-soft: #f1f9cf;
+  --accent-ink: #1d5a41;
+
+  --lime: #dff47c;
+  --lime-strong: #cde85c;
+  --lime-soft: #f3fad5;
+  --lime-ink: #3b5410;
+  --bar-ok: #121212;
+
+  --positive: #1d7a4c;
+  --warning: #9c5700;
+  --warning-bar: #e39a2b;
+  --warning-soft: #fbeed6;
+  --danger: #b3261e;
+  --danger-bar: #d9483b;
+  --danger-soft: #fbe8e5;
+  --track: #eceae4;
+
+  --shadow: 0 1px 2px rgb(38 36 26 / 0.05), 0 2px 8px -2px rgb(38 36 26 / 0.06);
+  --shadow-lg: 0 24px 48px -16px rgb(23 30 24 / 0.28), 0 4px 12px rgb(23 30 24 / 0.08);
+  --shadow-nav: 0 -1px 0 rgb(38 36 26 / 0.06), 0 -8px 24px -12px rgb(38 36 26 / 0.12);
+
+  --icon-tint: 16%;
+  --icon-ink: 72%;
+
+  /* Category identity colours: validated categorical palette, one fixed slot per category. */
+  --cat-blue: #2a78d6;
+  --cat-orange: #eb6834;
+  --cat-aqua: #1baf7a;
+  --cat-yellow: #eda100;
+  --cat-magenta: #e87ba4;
+  --cat-green: #008300;
+  --cat-violet: #4a3aa7;
+  --cat-red: #e34948;
+  --cat-grey: #8b918c;
+  --cat-forest: #1d5a41;
+
+  /* Playful direction (Home, welcome): warm white, off-black sections, pastel accents. */
+  --paper: #fbfaf6;
+  --noir: #121212;
+  --noir-2: #1e1e1e;
+  --noir-ink: #fbfaf6;
+  --noir-muted: #a9a8a3;
+  --pastel-lime: #dff47c;
+  --pastel-lavender: #dcd7fb;
+  --pastel-yellow: #fbf1b4;
+  --pastel-blush: #fbd9df;
+  --pastel-blue: #d3e7fb;
+  --pastel-ink: #121212;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0b100d;
+  --surface: #131a16;
+  --surface-2: #1b241f;
+  --surface-3: #232d27;
+  --ink: #eef0ea;
+  --muted: #a7afa8;
+  --subtle: #8d968f;
+  --line: #222b26;
+  --line-strong: #313b35;
+
+  --forest: #1a4535;
+  --forest-2: #20513f;
+  --forest-ink: #f2f1eb;
+  --forest-muted: #a9c0b2;
+  --accent: #c8ec62;
+  --accent-hover: #d6f37f;
+  --accent-fg: #11200f;
+  --accent-soft: #1d2d1f;
+  --accent-ink: #cdec74;
+
+  --lime: #c8ec62;
+  --lime-strong: #d6f37f;
+  --lime-soft: #26331a;
+  --lime-ink: #d6f37f;
+  --bar-ok: #c8ec62;
+
+  --positive: #8fd9a8;
+  --warning: #eeb45e;
+  --warning-bar: #e7a23c;
+  --warning-soft: #33260f;
+  --danger: #f3897d;
+  --danger-bar: #ec6a5c;
+  --danger-soft: #3a1b19;
+  --track: #26302a;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 24px 56px -16px rgb(0 0 0 / 0.7), 0 4px 12px rgb(0 0 0 / 0.4);
+  --shadow-nav: 0 -1px 0 rgb(255 255 255 / 0.04), 0 -8px 24px -12px rgb(0 0 0 / 0.6);
+
+  --icon-tint: 22%;
+  --icon-ink: 55%;
+
+  --cat-blue: #3987e5;
+  --cat-orange: #d95926;
+  --cat-aqua: #199e70;
+  --cat-yellow: #c98500;
+  --cat-magenta: #d55181;
+  --cat-green: #2f9a2f;
+  --cat-violet: #9085e9;
+  --cat-red: #e66767;
+  --cat-grey: #8d968f;
+  --cat-forest: #8fd9a8;
+
+  --paper: #0f0f0e;
+  --noir: #1c1c1a;
+  --noir-2: #262624;
+  --noir-ink: #f4f3ee;
+  --noir-muted: #a3a29c;
+  --pastel-lime: #c9e45f;
+  --pastel-lavender: #b9b1ee;
+  --pastel-yellow: #eadc8a;
+  --pastel-blush: #eab7c0;
+  --pastel-blue: #a9cdef;
+  --pastel-ink: #121212;
 }
 
-button,
-input,
-select {
-  font: inherit;
+@theme inline {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-forest: var(--forest);
+  --color-forest-2: var(--forest-2);
+  --color-forest-ink: var(--forest-ink);
+  --color-forest-muted: var(--forest-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-lime: var(--lime);
+  --color-lime-strong: var(--lime-strong);
+  --color-lime-soft: var(--lime-soft);
+  --color-lime-ink: var(--lime-ink);
+  --color-positive: var(--positive);
+  --color-warning: var(--warning);
+  --color-warning-bar: var(--warning-bar);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-bar: var(--danger-bar);
+  --color-danger-soft: var(--danger-soft);
+  --color-track: var(--track);
+  --color-bar-ok: var(--bar-ok);
+  --color-paper: var(--paper);
+  --color-noir: var(--noir);
+  --color-noir-2: var(--noir-2);
+  --color-noir-ink: var(--noir-ink);
+  --color-noir-muted: var(--noir-muted);
+  --color-pastel-lime: var(--pastel-lime);
+  --color-pastel-lavender: var(--pastel-lavender);
+  --color-pastel-yellow: var(--pastel-yellow);
+  --color-pastel-blush: var(--pastel-blush);
+  --color-pastel-blue: var(--pastel-blue);
+  --color-pastel-ink: var(--pastel-ink);
+  --shadow-card: var(--shadow);
+  --shadow-float: var(--shadow-lg);
+  --shadow-nav: var(--shadow-nav);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-#root {
-  min-height: 100vh;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    background: var(--canvas);
+    /* Keep focused elements clear of the sticky header and the bottom tab bar. */
+    scroll-padding-top: calc(4.5rem + env(safe-area-inset-top));
+    scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 1024px) {
+    html {
+      scroll-padding-top: 5.5rem;
+      scroll-padding-bottom: 1rem;
+    }
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  a,
+  button,
+  input,
+  select,
+  label {
+    touch-action: manipulation;
+  }
+
+  select option {
+    background-color: var(--surface);
+    color: var(--ink);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+  }
+
+  #root {
+    min-height: 100dvh;
+  }
+
+  dialog {
+    overscroll-behavior: contain;
+  }
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Motion. Only transform and opacity, and all of it collapses under reduced motion. */
+@keyframes bf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bf-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes bf-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bf-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bf-draw {
+  from {
+    stroke-dashoffset: 48;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes bf-scale-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes bf-toast {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.bf-rise {
+  animation: bf-rise 0.42s var(--ease-out-soft) both;
+}
+
+@keyframes bf-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Gentle idle float for illustration parts. Disabled entirely under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .bf-float {
+    animation: bf-float 5s ease-in-out infinite;
+    transform-box: fill-box;
+  }
+}
+
+.bf-stagger > * {
+  animation: bf-rise 0.45s var(--ease-out-soft) both;
+}
+.bf-stagger > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.bf-stagger > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.bf-stagger > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.bf-stagger > *:nth-child(n + 5) {
+  animation-delay: 200ms;
+}
+
+.bf-toast {
+  animation: bf-toast 0.32s var(--ease-out-soft) both;
+}
+
+.bf-scale-in {
+  animation: bf-scale-in 0.5s var(--ease-out-soft) both;
+}
+
+.bf-draw {
+  stroke-dasharray: 48;
+  animation: bf-draw 0.5s 0.25s var(--ease-out-soft) both;
+}
+
+dialog.bf-sheet[open] {
+  animation: bf-sheet-up 0.38s var(--ease-out-soft) both;
+}
+dialog.bf-sheet[open]::backdrop {
+  animation: bf-fade 0.25s ease-out both;
+}
+
+@media (min-width: 640px) {
+  dialog.bf-sheet[open] {
+    animation: bf-pop 0.28s var(--ease-out-soft) both;
+  }
+}
+
+/* Horizontal chip rows scroll without a visible scrollbar. */
+.bf-scroll-x {
+  scrollbar-width: none;
+}
+.bf-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

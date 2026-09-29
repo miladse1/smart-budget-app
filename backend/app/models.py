@@ -51,6 +51,8 @@ class UserPreference(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     budget_start_day: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    goal: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="preference")
 

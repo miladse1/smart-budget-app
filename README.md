@@ -170,9 +170,32 @@ alembic revision -m "describe the change"
 
 This project already includes the first migration at `backend/alembic/versions/0001_initial.py`.
 
+## First run and onboarding
+
+The first time BudgetFlow opens, it shows a short setup instead of the dashboard:
+
+1. Welcome
+2. What you want help with (spending, saving, tracking, or all three)
+3. Currency and the day your budget month starts
+4. Connect a bank through Plaid, or use demo mode
+5. Suggested category budgets you can edit, then a confirmation
+
+Answers are saved through the API: currency and start day in user preferences, the chosen goal and a completion flag through `PUT /api/onboarding`. Setup does not ask for any personal details. To see it again, open **Settings → Restart onboarding**. Your data is kept.
+
+Migration `0002_onboarding` adds the two preference columns. Run `alembic upgrade head` after pulling this change (Docker does this on startup).
+
+## Install as an app
+
+BudgetFlow is a progressive web app. It has a web app manifest, app icons and a small service worker, so it can be installed and opens in its own full-screen window:
+
+- **iPhone or iPad:** open it in Safari, tap **Share**, then **Add to Home Screen**.
+- **Chrome or Edge:** use the install icon in the address bar, or **Settings → App → Install**.
+
+It is still a web app, not an App Store download. The service worker runs only in production builds (`npm run build` then `npm run preview`) and never caches `/api` responses, so balances and transactions always come from the server. Installation requires HTTPS, except on `localhost`.
+
 ## Load demo data
 
-Either click **Load demo data** on the Settings page, or from `backend` with the virtualenv active:
+Either click **Load demo data** on the Settings page (or choose demo mode during onboarding), or from `backend` with the virtualenv active:
 
 ```bash
 python -m app.seed

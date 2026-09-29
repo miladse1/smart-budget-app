@@ -7,6 +7,8 @@ export interface AppInfo {
   plaid_configured: boolean;
   currency: string;
   budget_start_day: number;
+  onboarding_completed: boolean;
+  goal: Goal | null;
   month: number;
   year: number;
   demo_loaded: boolean;
@@ -112,7 +114,11 @@ export interface Settings {
   plaid_env: string;
   plaid_configured: boolean;
   demo_loaded: boolean;
+  onboarding_completed: boolean;
+  goal: Goal | null;
 }
+
+export type Goal = "spending" | "saving" | "tracking" | "all";
 
 export interface SyncResult {
   synced_items: number;

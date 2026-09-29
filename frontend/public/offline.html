@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Offline | BudgetFlow</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #f2f1eb; color: #17191a;
+        font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; padding: 24px; box-sizing: border-box; text-align: center; }
+      @media (prefers-color-scheme: dark) { body { background: #0b100d; color: #eef0ea; } p { color: #a7afa8 !important; } }
+      img { width: 64px; height: 64px; }
+      h1 { font-size: 20px; margin: 20px 0 6px; letter-spacing: -0.02em; }
+      p { margin: 0 0 20px; color: #595d59; max-width: 32ch; }
+      button { font: inherit; font-weight: 600; border: 0; border-radius: 999px; padding: 12px 22px; background: #173d2f; color: #f7f6f0; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon.svg" alt="" />
+      <h1>You are offline</h1>
+      <p>BudgetFlow needs a connection to show current balances and transactions.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>
