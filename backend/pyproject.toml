@@ -1,0 +1,20 @@
+[project]
+name = "budgetflow-backend"
+version = "0.1.0"
+description = "Read-only personal budgeting API for BudgetFlow"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = false
+check_untyped_defs = false
+exclude = ["alembic/"]
+
+[[tool.mypy.overrides]]
+module = "app.models"
+disable_error_code = ["assignment", "var-annotated"]

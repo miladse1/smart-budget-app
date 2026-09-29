@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: budgetflow
+      POSTGRES_PASSWORD: budgetflow
+      POSTGRES_DB: budgetflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - budgetflow-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budgetflow -d budgetflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://budgetflow:budgetflow@db:5432/budgetflow
+      FRONTEND_URL: http://localhost:5173
+      PLAID_ENV: ${PLAID_ENV:-sandbox}
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
+      PLAID_SECRET: ${PLAID_SECRET:-}
+      PLAID_WEBHOOK_URL: ${PLAID_WEBHOOK_URL:-}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - frontend-modules:/app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  budgetflow-pg:
+  frontend-modules:
