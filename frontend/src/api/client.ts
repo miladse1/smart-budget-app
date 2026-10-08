@@ -107,6 +107,8 @@ export const api = {
       body: JSON.stringify(goal ? { completed, goal } : { completed }),
     }),
   createLinkToken: () => request<{ link_token: string; expiration: string | null }>("/api/plaid/link-token", { method: "POST" }),
+  updateLinkToken: (itemId: number) =>
+    request<{ link_token: string; expiration: string | null }>(`/api/plaid/items/${itemId}/link-token`, { method: "POST" }),
   exchangePublicToken: (publicToken: string, institutionName: string) =>
     request<Institution>("/api/plaid/exchange", {
       method: "POST",

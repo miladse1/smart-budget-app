@@ -18,7 +18,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from sqlalchemy.types import JSON
 
 from app.database import Base
@@ -73,6 +73,19 @@ class PlaidItem(Base):
 
     user: Mapped[User] = relationship(back_populates="plaid_items")
     accounts: Mapped[list["BankAccount"]] = relationship(back_populates="plaid_item")
+
+    @validates("encrypted_access_token")
+    def _only_ciphertext(self, _key: str, value: str | None) -> str | None:
+        """Refuse to persist anything that is not Fernet ciphertext, such as a raw access token."""
+        from app.crypto import looks_encrypted
+
+        if value is not None and not looks_encrypted(value):
+            raise ValueError("Plaid access tokens must be encrypted before they are stored.")
+        return value
+
+    def __repr__(self) -> str:
+        # Never include the token or Plaid's item identifier in debug output.
+        return f"PlaidItem(id={self.id}, status={self.status!r}, is_demo={self.is_demo})"
 
 
 class BankAccount(Base):

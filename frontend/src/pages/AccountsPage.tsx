@@ -156,6 +156,27 @@ export function AccountsPage() {
                     <Unlink size={17} aria-hidden="true" />
                   </IconButton>
                 </div>
+                {item.status === "error" && !item.is_demo && (
+                  <div className="mt-3">
+                    <Callout
+                      tone="warning"
+                      title="This bank needs you to sign in again"
+                      action={
+                        configured ? (
+                          <PlaidConnect itemId={item.id} onResult={(result) => toast(result.ok ? "success" : "error", result.message)}>
+                            {({ open, ready, connecting }) => (
+                              <Button size="sm" onClick={open} disabled={!ready}>
+                                {connecting ? "Reconnecting…" : "Reconnect"}
+                              </Button>
+                            )}
+                          </PlaidConnect>
+                        ) : undefined
+                      }
+                    >
+                      Syncing is paused until you reconnect. Your saved transactions are kept.
+                    </Callout>
+                  </div>
+                )}
                 <ul className="mt-3 divide-y divide-line overflow-hidden rounded-[20px] bg-surface shadow-card ring-1 ring-line">
                   {item.accounts.map((account) => (
                     <li key={account.id} className="flex items-center gap-4 px-4 py-4">

@@ -75,6 +75,13 @@ def upsert_accounts(db: Session, item: PlaidItem, accounts: list[object], is_dem
             .filter(BankAccount.plaid_account_id == data["account_id"])
             .one_or_none()
         )
+        if row is not None and row.plaid_item_id != item.id:
+            owner = db.query(PlaidItem.user_id).filter(PlaidItem.id == row.plaid_item_id).scalar()
+            if owner != item.user_id:
+                # Never update or move an account that belongs to another profile.
+                continue
+            # Same person reconnected the bank as a new Item: move the account to it.
+            row.plaid_item_id = item.id
         current = money(data["current"]) if data["current"] is not None else None
         available = money(data["available"]) if data["available"] is not None else None
         if row is None:

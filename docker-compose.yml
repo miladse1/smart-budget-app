@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: budgetflow
       POSTGRES_DB: budgetflow
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - budgetflow-pg:/var/lib/postgresql/data
     healthcheck:
@@ -18,13 +18,14 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - path: .env
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://budgetflow:budgetflow@db:5432/budgetflow
       FRONTEND_URL: http://localhost:5173
+      APP_ENV: ${APP_ENV:-development}
       PLAID_ENV: ${PLAID_ENV:-sandbox}
       PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
       PLAID_SECRET: ${PLAID_SECRET:-}
@@ -39,9 +40,10 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     environment:
       VITE_PROXY_TARGET: http://backend:8000
+      VITE_DEV_HOST: 0.0.0.0
     volumes:
       - ./frontend:/app
       - frontend-modules:/app/node_modules

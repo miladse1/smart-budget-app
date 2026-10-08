@@ -38,10 +38,29 @@ from app.schemas import (
 )
 from app.services.budget_math import current_budget_month, previous_month
 from app.services.demo_data import clear_demo_data, load_demo_data
+from app.crypto import EncryptionError, decrypt_secret
+from app.ratelimit import rate_limit
 from app.services.plaid_service import PlaidError, connect_item, create_link_token, disconnect_item, sync_item, verify_webhook
 from app.services.reporting import build_month_report, list_accounts
 
 router = APIRouter(prefix="/api")
+
+# Limits per client address. Connecting and syncing call Plaid, which is rate limited and billed.
+connect_limit = Depends(rate_limit("plaid-connect", limit=10, window_seconds=60))
+exchange_limit = Depends(rate_limit("plaid-exchange", limit=5, window_seconds=60))
+sync_limit = Depends(rate_limit("plaid-sync", limit=6, window_seconds=60))
+disconnect_limit = Depends(rate_limit("plaid-disconnect", limit=10, window_seconds=60))
+webhook_limit = Depends(rate_limit("plaid-webhook", limit=120, window_seconds=60))
+demo_limit = Depends(rate_limit("demo-data", limit=10, window_seconds=60))
+
+
+def _plaid_http_error(exc: PlaidError) -> HTTPException:
+    """Map a Plaid failure to a status code. The message is already safe for people to read."""
+    if exc.login_required:
+        return HTTPException(status_code=409, detail=str(exc))
+    if exc.retryable:
+        return HTTPException(status_code=503, detail=str(exc))
+    return HTTPException(status_code=502, detail=str(exc))
 
 
 def _month_year(user: User, month: int | None, year: int | None) -> tuple[int, int]:
@@ -279,6 +298,8 @@ def transactions(
     db: Session = Depends(get_db),
 ) -> TransactionPage:
     chosen_month, chosen_year = _month_year(user, month, year)
+    if account_id is not None and account_id not in {account.id for account in list_accounts(db, user)}:
+        raise HTTPException(status_code=404, detail="Account not found.")
     report = build_month_report(db, user, chosen_year, chosen_month, account_id)
     rows = report.transactions
     if category_id is not None:
@@ -406,7 +427,7 @@ def update_onboarding(
     return get_settings(user, db)
 
 
-@router.post("/plaid/link-token", response_model=LinkTokenOut)
+@router.post("/plaid/link-token", response_model=LinkTokenOut, dependencies=[connect_limit])
 def link_token(user: User = Depends(current_user)) -> LinkTokenOut:
     reason = bank_connection_block_reason()
     if reason:
@@ -414,11 +435,29 @@ def link_token(user: User = Depends(current_user)) -> LinkTokenOut:
     try:
         payload = create_link_token(user)
     except PlaidError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise _plaid_http_error(exc) from None
     return LinkTokenOut(**payload)
 
 
-@router.post("/plaid/exchange", response_model=ItemOut)
+@router.post("/plaid/items/{item_id}/link-token", response_model=LinkTokenOut, dependencies=[connect_limit])
+def update_link_token(item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> LinkTokenOut:
+    """Link token in update mode, to repair a connection after ITEM_LOGIN_REQUIRED."""
+    reason = bank_connection_block_reason()
+    if reason:
+        raise HTTPException(status_code=503, detail=reason)
+    item = db.query(PlaidItem).filter(PlaidItem.id == item_id, PlaidItem.user_id == user.id).one_or_none()
+    if item is None or not item.encrypted_access_token or item.is_demo:
+        raise HTTPException(status_code=404, detail="Connection not found.")
+    try:
+        payload = create_link_token(user, access_token=decrypt_secret(item.encrypted_access_token))
+    except EncryptionError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from None
+    except PlaidError as exc:
+        raise _plaid_http_error(exc) from None
+    return LinkTokenOut(**payload)
+
+
+@router.post("/plaid/exchange", response_model=ItemOut, dependencies=[exchange_limit])
 def exchange(
     payload: ExchangeIn,
     user: User = Depends(current_user),
@@ -430,7 +469,7 @@ def exchange(
     try:
         item = connect_item(db, user, payload.public_token, payload.institution_name)
     except PlaidError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise _plaid_http_error(exc) from None
     db.refresh(item)
     return ItemOut(
         id=item.id,
@@ -449,12 +488,12 @@ def _sync_targets(db: Session, user: User, item_id: int | None = None) -> list[P
     return query.all()
 
 
-@router.post("/plaid/sync", response_model=SyncResult)
+@router.post("/plaid/sync", response_model=SyncResult, dependencies=[sync_limit])
 def sync_all(user: User = Depends(current_user), db: Session = Depends(get_db)) -> SyncResult:
     return _run_sync(db, user, None)
 
 
-@router.post("/plaid/items/{item_id}/sync", response_model=SyncResult)
+@router.post("/plaid/items/{item_id}/sync", response_model=SyncResult, dependencies=[sync_limit])
 def sync_one(item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> SyncResult:
     return _run_sync(db, user, item_id)
 
@@ -489,23 +528,33 @@ def _run_sync(db: Session, user: User, item_id: int | None) -> SyncResult:
             message="No connected bank accounts to sync.",
         )
     totals = {"added": 0, "modified": 0, "removed": 0}
-    try:
-        for item in items:
+    failures: list[PlaidError] = []
+    synced = 0
+    # One bank failing (for example ITEM_LOGIN_REQUIRED) must not stop the others from syncing.
+    for item in items:
+        try:
             counts = sync_item(db, user, item)
-            for key in totals:
-                totals[key] += counts[key]
-    except PlaidError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except PlaidError as exc:
+            failures.append(exc)
+            continue
+        synced += 1
+        for key in totals:
+            totals[key] += counts[key]
+    if failures and synced == 0:
+        raise _plaid_http_error(failures[0])
+    message = f"Synced {synced} connection{'s' if synced != 1 else ''}."
+    if failures:
+        message += f" {len(failures)} could not sync: {failures[0]}"
     return SyncResult(
-        synced_items=len(items),
+        synced_items=synced,
         added=totals["added"],
         modified=totals["modified"],
         removed=totals["removed"],
-        message=f"Synced {len(items)} connection{'s' if len(items) != 1 else ''}.",
+        message=message,
     )
 
 
-@router.delete("/plaid/items/{item_id}", status_code=204)
+@router.delete("/plaid/items/{item_id}", status_code=204, dependencies=[disconnect_limit])
 def remove_connection(item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> None:
     item = db.query(PlaidItem).filter(PlaidItem.id == item_id, PlaidItem.user_id == user.id).one_or_none()
     if item is None:
@@ -513,46 +562,62 @@ def remove_connection(item_id: int, user: User = Depends(current_user), db: Sess
     disconnect_item(db, item)
 
 
-@router.post("/plaid/webhook")
+@router.post("/plaid/webhook", dependencies=[webhook_limit])
 async def plaid_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
+    """Plaid webhooks. Signature-verified, idempotent and safe to receive twice or out of order.
+
+    Sync is cursor-based, so a duplicate or late SYNC_UPDATES_AVAILABLE just finds nothing new.
+    Every rejection returns the same response, which reveals nothing about the reason.
+    """
     raw = await request.body()
     if not settings.plaid_credentials_set:
+        # Without Plaid keys no signature can be checked and no Items exist, so nothing is parsed.
         return {"status": "ignored"}
     try:
         verify_webhook(raw, request.headers.get("Plaid-Verification"))
-    except PlaidError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-    try:
         payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=400, detail="Webhook body must be JSON.") from exc
-    webhook_type = str(payload.get("webhook_type", ""))
-    webhook_code = str(payload.get("webhook_code", ""))
+        if not isinstance(payload, dict):
+            raise ValueError
+    except (PlaidError, UnicodeDecodeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid webhook.") from None
+
+    webhook_type = str(payload.get("webhook_type", ""))[:64]
+    webhook_code = str(payload.get("webhook_code", ""))[:64]
     item_key = payload.get("item_id")
-    if not item_key:
+    if not isinstance(item_key, str) or not item_key:
         return {"status": "ignored"}
-    item = db.query(PlaidItem).filter(PlaidItem.plaid_item_id == str(item_key)).one_or_none()
-    if item is None:
+    item = db.query(PlaidItem).filter(PlaidItem.plaid_item_id == item_key[:128]).one_or_none()
+    if item is None or item.status == "disconnected":
         return {"status": "ignored"}
-    if webhook_type == "ITEM" and webhook_code == "ERROR":
-        item.status = "error"
-        db.commit()
-        return {"status": "updated"}
-    if webhook_type == "TRANSACTIONS":
+
+    if webhook_type == "ITEM":
+        error_code = str((payload.get("error") or {}).get("error_code", "")) if isinstance(payload.get("error"), dict) else ""
+        if webhook_code in {"ERROR", "PENDING_EXPIRATION", "PENDING_DISCONNECT", "USER_PERMISSION_REVOKED", "USER_ACCOUNT_REVOKED"} or error_code == "ITEM_LOGIN_REQUIRED":
+            item.status = "error"
+            db.commit()
+            return {"status": "updated"}
+        if webhook_code == "LOGIN_REPAIRED":
+            item.status = "active"
+            db.commit()
+            return {"status": "updated"}
+        return {"status": "ignored"}
+
+    if webhook_type == "TRANSACTIONS" and webhook_code in {"SYNC_UPDATES_AVAILABLE", "DEFAULT_UPDATE", "INITIAL_UPDATE", "HISTORICAL_UPDATE"}:
+        if not item.encrypted_access_token:
+            return {"status": "ignored"}
         user = db.query(User).filter(User.id == item.user_id).one()
-        if item.encrypted_access_token:
-            try:
-                sync_item(db, user, item)
-            except PlaidError as exc:
-                raise HTTPException(status_code=502, detail=str(exc)) from exc
+        try:
+            sync_item(db, user, item)
+        except PlaidError as exc:
+            # A non-2xx response makes Plaid retry later; the cursor was not advanced.
+            raise HTTPException(status_code=503, detail="Sync deferred.") from exc
         return {"status": "synced"}
     return {"status": "ignored"}
 
 
-@router.post("/demo/load", response_model=DemoResult)
+@router.post("/demo/load", response_model=DemoResult, dependencies=[demo_limit])
 def demo_load(db: Session = Depends(get_db), user: User = Depends(current_user)) -> DemoResult:
-    del user
-    result = load_demo_data(db)
+    result = load_demo_data(db, user=user)
     return DemoResult(
         message="Demo data loaded. The $20 Food purchase leaves $180 of the $200 Food budget.",
         month=result["month"],
@@ -562,10 +627,9 @@ def demo_load(db: Session = Depends(get_db), user: User = Depends(current_user))
     )
 
 
-@router.post("/demo/clear", response_model=DemoResult)
+@router.post("/demo/clear", response_model=DemoResult, dependencies=[demo_limit])
 def demo_clear(db: Session = Depends(get_db), user: User = Depends(current_user)) -> DemoResult:
-    del user
-    removed = clear_demo_data(db)
+    removed = clear_demo_data(db, user=user)
     total = removed["transactions"] + removed["budgets"] + removed["accounts"]
     if total == 0:
         message = "No demo data to clear."

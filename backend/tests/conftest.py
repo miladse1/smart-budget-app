@@ -3,6 +3,20 @@
 import os
 
 os.environ["BUDGETFLOW_SKIP_STARTUP"] = "1"
+# Environment variables take precedence over the .env file, so tests never see real
+# credentials even when a developer's .env has them. Tests set fake values themselves.
+os.environ.update(
+    {
+        "APP_ENV": "development",
+        "PLAID_ENV": "sandbox",
+        "PLAID_CLIENT_ID": "",
+        "PLAID_SECRET": "",
+        "PLAID_WEBHOOK_URL": "",
+        "APP_ENCRYPTION_KEY": "",
+        "DATABASE_URL": "sqlite://",
+        "FRONTEND_URL": "http://localhost:5173",
+    }
+)
 
 from collections.abc import Generator
 
@@ -15,6 +29,18 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.services.users import seed_categories
+
+
+@pytest.fixture(autouse=True)
+def _fresh_limits() -> Generator[None, None, None]:
+    from app.ratelimit import reset
+    from app.services.plaid_service import clear_webhook_key_cache
+
+    reset()
+    clear_webhook_key_cache()
+    yield
+    reset()
+    clear_webhook_key_cache()
 
 
 @pytest.fixture()

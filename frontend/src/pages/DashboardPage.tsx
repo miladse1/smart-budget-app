@@ -256,7 +256,7 @@ export function DashboardPage() {
   );
 
   const heroBleed =
-    "-mx-4 -mt-[calc(env(safe-area-inset-top)+1rem)] rounded-b-[36px] px-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] sm:mx-0 sm:mt-0 sm:rounded-[32px] sm:px-7 sm:pt-7 lg:px-8 lg:pt-8";
+    "-mx-4 -mt-[calc(var(--safe-top)+1rem)] rounded-b-[36px] px-5 pt-[calc(var(--safe-top)+1.25rem)] sm:mx-0 sm:mt-0 sm:rounded-[32px] sm:px-7 sm:pt-7 lg:px-8 lg:pt-8";
 
   if (dashboard.error instanceof Error || !data || isEmpty) {
     return (

@@ -271,6 +271,14 @@
   }
 }
 
+/* When the test-mode strip is shown it already covers the notch, so content below it does not pad again. */
+.bf-shell {
+  --safe-top: env(safe-area-inset-top);
+}
+.bf-shell[data-env-banner] {
+  --safe-top: 0px;
+}
+
 @utility tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;

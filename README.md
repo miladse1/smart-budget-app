@@ -233,19 +233,9 @@ Backend tests use an in-memory database. They do not call Plaid or Postgres.
 
 ## Plaid Sandbox credentials
 
-1. Create a free account at https://dashboard.plaid.com/signup
-2. Open https://dashboard.plaid.com/developers/keys
-3. Copy the client ID and the **Sandbox** secret into `.env`:
+Follow **[SECURITY.md → Adding Plaid Sandbox credentials locally](SECURITY.md#adding-plaid-sandbox-credentials-locally)**. In short: create a free account at https://dashboard.plaid.com/signup, then type the client ID and the **Sandbox** secret into your local `.env` (`PLAID_CLIENT_ID`, `PLAID_SECRET`, with `PLAID_ENV=sandbox`) in your own editor, and restart the backend. Never paste these values into chat tools, issues, commits or documentation.
 
-```text
-PLAID_CLIENT_ID=your_client_id
-PLAID_SECRET=your_sandbox_secret
-PLAID_ENV=sandbox
-```
-
-4. Restart the backend so it reads the new values.
-
-Sandbox institutions are fake. They are not your real bank.
+Sandbox institutions are fake. They are not your real bank. BudgetFlow refuses `PLAID_ENV=production` unless `APP_ENV=production`, and shows a "Sandbox mode" strip on every screen while it is not in Production.
 
 ## Test Plaid Sandbox
 
@@ -264,7 +254,7 @@ Confirm the API responses in http://localhost:8000/docs. They include account na
 
 Sandbox never links a real bank account.
 
-Plaid's older Development environment is not included in current SDK builds. This project still accepts `PLAID_ENV=development` and sends those requests to `https://development.plaid.com` when you have that access.
+Plaid has retired its Development environment, so `PLAID_ENV` accepts only `sandbox` and `production`. Production is refused unless `APP_ENV=production`; see [SECURITY.md](SECURITY.md) for what must be in place first.
 
 Linking a real bank generally requires Plaid **Production** access, which Plaid approves separately. Set `PLAID_ENV=production` and use the production secret only after that approval. Do not point production credentials at this project until the security limits below are handled.
 
@@ -301,7 +291,7 @@ If you change a category by hand, later syncs update the amount and date but lea
 
 ## Security limits before public deployment
 
-This version is for local learning and a portfolio. Do not put it on the public internet as-is.
+This version is for local learning and a portfolio. Do not put it on the public internet as-is. [SECURITY.md](SECURITY.md) documents the security model, the protections in place, and the exact changes needed for managed login and private hosting.
 
 Still required before a real deployment:
 

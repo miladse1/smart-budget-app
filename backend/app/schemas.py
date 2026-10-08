@@ -135,8 +135,9 @@ class LinkTokenOut(APIModel):
 
 
 class ExchangeIn(BaseModel):
-    public_token: str = Field(min_length=8, max_length=500)
-    institution_name: str | None = Field(default=None, max_length=255)
+    # Short-lived Plaid public token from Link, e.g. public-sandbox-<uuid>. Single use.
+    public_token: str = Field(min_length=16, max_length=200, pattern=r"^public-(sandbox|production)-[A-Za-z0-9-]+$")
+    institution_name: str | None = Field(default=None, max_length=120, pattern=r"^[^\x00-\x1f<>]*$")
 
 
 class SyncResult(APIModel):

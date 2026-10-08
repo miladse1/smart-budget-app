@@ -16,9 +16,18 @@ export function Layout() {
   const location = useLocation();
   const appQuery = useQuery({ queryKey: ["app"], queryFn: api.app });
   const environment = appQuery.data?.plaid_env ?? "sandbox";
+  // Anything other than Plaid Production is a test environment and must say so on every screen.
+  const testMode = Boolean(appQuery.data) && environment !== "production";
 
   return (
-    <div className="min-h-dvh bg-canvas text-ink">
+    <div className="bf-shell min-h-dvh bg-canvas text-ink" data-env-banner={testMode ? "" : undefined}>
+      {testMode && (
+        <div role="note" className="bg-pastel-yellow px-4 pt-[env(safe-area-inset-top)] text-center text-[12px] font-semibold text-pastel-ink">
+          <p className="py-1.5">
+            <span className="capitalize">{environment}</span> mode: test banks only, no real accounts
+          </p>
+        </div>
+      )}
       <a
         href="#main"
         className="sr-only rounded-full bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg focus:not-sr-only focus:fixed focus:top-[calc(env(safe-area-inset-top)+0.5rem)] focus:left-2 focus:z-[60]"
@@ -60,7 +69,7 @@ export function Layout() {
       <main
         id="main"
         tabIndex={-1}
-        className="mx-auto w-full max-w-[560px] px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(6.5rem+env(safe-area-inset-bottom))] focus:outline-none sm:px-6 md:max-w-[720px] lg:max-w-[1180px] lg:px-8 lg:pt-8 lg:pb-12"
+        className="mx-auto w-full max-w-[560px] px-4 pt-[calc(var(--safe-top)+1rem)] pb-[calc(6.5rem+env(safe-area-inset-bottom))] focus:outline-none sm:px-6 md:max-w-[720px] lg:max-w-[1180px] lg:px-8 lg:pt-8 lg:pb-12"
       >
         <div key={location.pathname} className="bf-rise">
           <Outlet />

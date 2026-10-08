@@ -480,6 +480,7 @@ function OnboardingSteps() {
                 <p className="flex flex-wrap items-center gap-2 text-[16px] font-semibold">
                   Connect your bank
                   {!plaidReady && <Badge>Not set up on this server</Badge>}
+                  {plaidReady && app.data?.plaid_env !== "production" && <Badge tone="warning">Sandbox: test banks only</Badge>}
                 </p>
                 <p className="mt-1 text-[14px] text-muted">Secure sign-in through Plaid. BudgetFlow never sees your password and cannot move money.</p>
               </div>

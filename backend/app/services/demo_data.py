@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.models import BankAccount, Budget, PlaidItem, Transaction, utcnow
+from app.models import BankAccount, Budget, PlaidItem, Transaction, User, utcnow
 from app.money import money
 from app.services.budget_math import budget_period, current_budget_month
 from app.services.users import category_by_name, get_local_user, seed_categories
@@ -26,8 +26,9 @@ def _in_period(today: date, start_day: int, fraction: float) -> date:
     return start + timedelta(days=offset)
 
 
-def clear_demo_data(db: Session) -> dict[str, int]:
-    user = get_local_user(db)
+def clear_demo_data(db: Session, user: User | None = None) -> dict[str, int]:
+    """Remove this profile's demo records only. Real bank history is never touched."""
+    user = user or get_local_user(db)
     seed_categories(db)
     items = db.query(PlaidItem).filter(PlaidItem.user_id == user.id, PlaidItem.is_demo.is_(True)).all()
     item_ids = [item.id for item in items]
@@ -67,15 +68,15 @@ def clear_demo_data(db: Session) -> dict[str, int]:
     }
 
 
-def load_demo_data(db: Session, today: date | None = None) -> dict:
+def load_demo_data(db: Session, today: date | None = None, user: User | None = None) -> dict:
     """Replace demo records with a fixed month of sample spending.
 
     Includes a $20 Food purchase against a $200 Food budget ($180 remaining),
     one pending purchase, one category near its limit, and one over budget.
     """
     today = today or date.today()
-    clear_demo_data(db)
-    user = get_local_user(db)
+    user = user or get_local_user(db)
+    clear_demo_data(db, user)
     seed_categories(db)
     start_day = user.preference.budget_start_day if user.preference else 1
     month, year = current_budget_month(today, start_day)
@@ -85,7 +86,7 @@ def load_demo_data(db: Session, today: date | None = None) -> dict:
         user_id=user.id,
         institution_name="Demo Bank",
         encrypted_access_token=None,
-        plaid_item_id=DEMO_ITEM_ID,
+        plaid_item_id=f"{DEMO_ITEM_ID}-{user.id}",
         transaction_cursor=None,
         status="demo",
         last_synced_at=utcnow(),
@@ -96,7 +97,7 @@ def load_demo_data(db: Session, today: date | None = None) -> dict:
     db.flush()
     account = BankAccount(
         plaid_item_id=item.id,
-        plaid_account_id=DEMO_ACCOUNT_ID,
+        plaid_account_id=f"{DEMO_ACCOUNT_ID}-{user.id}",
         account_name="Chequing",
         official_name="Demo Chequing",
         account_type="depository",
