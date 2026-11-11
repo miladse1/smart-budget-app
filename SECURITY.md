@@ -56,7 +56,9 @@ Plaid failures are logged as `error_type`, `error_code` and Plaid's `request_id`
 
 ## API protections
 
-- **CORS:** one exact origin from `FRONTEND_URL`, no credentials, only the methods and the `Content-Type` header the app uses.
+- **CORS:** one exact origin from `FRONTEND_URL`, no credentials, only the methods and the `Content-Type` header the app uses. The browser reaches the API through Vite's same-origin proxy, so the session cookie never needs CORS credentials.
+- **Sign-in and sessions:** see *Known limits* below for the single-owner design; `app/auth.py` holds the implementation and `tests/test_auth.py` the tests.
+- **Origin and host checks:** state-changing requests with a foreign `Origin` (or a cross-site `Sec-Fetch-Site`) are refused with `403`; requests for host names outside `ALLOWED_HOSTS` are refused with `400`.
 - **Security headers:**
   - `X-Content-Type-Options: nosniff`;
   - `X-Frame-Options: DENY`;
@@ -76,6 +78,8 @@ Plaid failures are logged as `error_type`, `error_code` and Plaid's `request_id`
   | Disconnect | 10 per minute |
   | Webhook | 120 per minute |
   | Demo data | 10 per minute |
+  | Sign-in | 8 per 5 minutes |
+  | Passphrase creation / change | 5 per 5 minutes |
 
   The limiter is in-memory, so it protects a single API process only.
 - **Authorization:** every budget, transaction, account and Plaid query is filtered by the current profile. Records belonging to another profile return `404`. A reconnect can never move an Item to a different profile, and a sync can never update another profile's account.
@@ -129,13 +133,15 @@ If a key is ever exposed, rotate it in the Plaid dashboard.
 
 ## Known limits of this phase
 
-- **No login.** Anyone who can reach the API can read the single profile's data. Ports are bound to `127.0.0.1` and Vite listens on localhost only, but this is still not safe on a shared or public network.
+- **Single-owner login (added).** Every financial endpoint requires a session. The owner creates a passphrase on first run (scrypt, 32 MB, salted). Sessions are 256-bit random tokens stored only as SHA-256 hashes, sent in an `HttpOnly`, `SameSite=Strict` cookie scoped to `/api`, with a 60-minute idle timeout and 12-hour lifetime. Sign-in is limited to 8 attempts per 5 minutes. Changing the passphrase signs out other browsers. State-changing requests from other origins are refused, and the API answers only to `ALLOWED_HOSTS` (DNS-rebinding protection). Forgotten passphrase: `python -m app.reset_passphrase` on this computer. There is no MFA yet; add it before any hosted or real-bank use.
 - **Rate limiting is in-memory** and keyed by the direct client address. It is not shared across processes, and it is not aware of proxies.
 - **Encryption-key storage.** The encryption key sits in a local `.env` next to the database credentials. Anyone with both can decrypt tokens.
-- **No dependency audit for Python.** `pip-audit` is not part of the project yet. `npm audit` covers the frontend.
+- **Dependencies** are pinned in `backend/requirements-lock.txt` and checked with `pip-audit` and `npm audit` (0 known issues on 2026-11-11).
 - **Webhook keys** are cached in process memory.
 
 ## Next phase: managed authentication and private hosting
+
+> Local single-owner sign-in now exists (see *Known limits* above and `app/auth.py`). This section covers the larger step: several users or a hosted deployment. For connecting a real bank, follow [docs/REAL_BANK_READINESS.md](docs/REAL_BANK_READINESS.md).
 
 ### What must change in the code
 
