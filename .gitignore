@@ -1,7 +1,31 @@
-# Secrets
+# Secrets (real values live only in the root .env, mode 600)
 .env
 .env.*
+*.env
 !.env.example
+*.pem
+*.key
+credentials*.json
+secrets*.json
+
+# Financial data: bank exports, database files, dumps, backups
+*.csv
+*.ofx
+*.qfx
+*.xlsx
+*.pdf
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.dump
+*.bak
+backups/
+*.tgz
+*.tar
+*.tar.gz
+*.zip
 
 # Python
 __pycache__/
@@ -21,11 +45,17 @@ frontend/dist/
 frontend/coverage/
 *.tsbuildinfo
 
+# AI-assistant skill packs (third-party content, kept local). Project rules: AGENTS.md, CLAUDE.md
+.agents/
+.claude/skills/
+skills-lock.json
+
 # OS and editors
 .DS_Store
 .idea/
 .vscode/
 *.log
+logs/
 
 # Browser automation and test output
 .playwright-cli/

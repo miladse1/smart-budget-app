@@ -3,7 +3,9 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: budgetflow
-      POSTGRES_PASSWORD: budgetflow
+      # Local container only (bound to 127.0.0.1). Set POSTGRES_PASSWORD in .env to change it
+      # before the first start; an existing volume keeps the password it was created with.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budgetflow}
       POSTGRES_DB: budgetflow
     ports:
       - "127.0.0.1:5432:5432"
@@ -23,7 +25,8 @@ services:
       - path: .env
         required: false
     environment:
-      DATABASE_URL: postgresql+psycopg://budgetflow:budgetflow@db:5432/budgetflow
+      DATABASE_URL: postgresql+psycopg://budgetflow:${POSTGRES_PASSWORD:-budgetflow}@db:5432/budgetflow
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
       FRONTEND_URL: http://localhost:5173
       APP_ENV: ${APP_ENV:-development}
       PLAID_ENV: ${PLAID_ENV:-sandbox}

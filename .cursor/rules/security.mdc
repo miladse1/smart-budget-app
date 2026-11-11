@@ -1,0 +1,12 @@
+---
+description: Security rules for BudgetFlow (always on)
+alwaysApply: true
+---
+
+Follow AGENTS.md in the repository root. The short version:
+
+- Never open, print, or copy `.env`, and never query real budgets, accounts, or transactions into chat, tests, docs, or screenshots.
+- Tests, fixtures, docs, and screenshots use fictional data only.
+- Secrets are read only by `backend/`. Never put a secret in `frontend/` or in a `VITE_` variable. Never add Plaid products that move money.
+- Every financial endpoint depends on `current_user`; bank tokens are always encrypted.
+- Never commit, push, change GitHub settings, or rewrite history without the user's explicit approval. Never use `--no-verify`.

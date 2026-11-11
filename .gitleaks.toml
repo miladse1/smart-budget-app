@@ -1,0 +1,40 @@
+# gitleaks configuration: the default rule set plus rules for BudgetFlow's own secrets.
+# Used by .githooks/guard.sh (pre-commit, pre-push, scripts/security-check.sh) and CI.
+title = "BudgetFlow"
+
+[extend]
+useDefault = true
+
+# Plaid access, public, and Link tokens. Access tokens grant read access to a bank Item.
+[[rules]]
+id = "plaid-token"
+description = "Plaid access, public, or Link token"
+regex = '''\b(?:access|public|link)-(?:sandbox|development|production)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b'''
+keywords = ["access-sandbox", "access-production", "access-development", "public-sandbox", "public-production", "link-sandbox", "link-production"]
+
+[[rules]]
+id = "plaid-credential-assignment"
+description = "Plaid client ID or secret in an env-style assignment"
+regex = '''(?i)\bPLAID_(?:SECRET|CLIENT_ID)\s*[=:]\s*['"]?([0-9a-f]{24,32})\b'''
+secretGroup = 1
+keywords = ["plaid_secret", "plaid_client_id"]
+
+# The key that encrypts stored Plaid access tokens (Fernet: 32 bytes, url-safe base64).
+[[rules]]
+id = "fernet-encryption-key"
+description = "Fernet encryption key in an env-style assignment"
+regex = '''(?i)\b[A-Z_]*ENCRYPTION_KEY\s*[=:]\s*['"]?([A-Za-z0-9_\-]{43}=)'''
+secretGroup = 1
+keywords = ["encryption_key"]
+
+# Encrypted Plaid tokens (Fernet ciphertext) belong in the database only.
+[[rules]]
+id = "fernet-ciphertext"
+description = "Fernet ciphertext (encrypted bank token)"
+regex = '''\bgAAAAA[A-Za-z0-9_\-]{60,}={0,2}'''
+keywords = ["gaaaaa"]
+
+[[allowlists]]
+description = "Fake tokens in tests are built from obviously fake parts"
+paths = ['''^backend/tests/.*\.py$''']
+regexes = ['''(?:access|public|link)-sandbox-(?:0{8}|1{8}|a{8}|test)''']
