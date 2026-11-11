@@ -15,6 +15,7 @@ os.environ.update(
         "APP_ENCRYPTION_KEY": "",
         "DATABASE_URL": "sqlite://",
         "FRONTEND_URL": "http://localhost:5173",
+        "ALLOWED_HOSTS": "testserver,localhost,127.0.0.1",
     }
 )
 
@@ -29,6 +30,8 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.services.users import seed_categories
+
+OWNER_PASSPHRASE = "correct horse battery staple"
 
 
 @pytest.fixture(autouse=True)
@@ -62,6 +65,27 @@ def db() -> Generator[Session, None, None]:
 
 @pytest.fixture()
 def client(db: Session) -> Generator[TestClient, None, None]:
+    session_factory = db.info["factory"]
+
+    def override() -> Generator[Session, None, None]:
+        session = session_factory()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_db] = override
+    with TestClient(app) as test_client:
+        # Every API test runs as the signed-in owner; test_auth.py covers signed-out access.
+        response = test_client.post("/api/auth/setup", json={"passphrase": OWNER_PASSPHRASE})
+        assert response.status_code == 201, response.text
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def anon_client(db: Session) -> Generator[TestClient, None, None]:
+    """A client with no session and no owner passphrase yet (first run)."""
     session_factory = db.info["factory"]
 
     def override() -> Generator[Session, None, None]:

@@ -12,11 +12,20 @@ import type {
   TransactionPage,
 } from "./types";
 
+export const SIGNED_OUT_EVENT = "budgetflow:signed-out";
+
+export interface AuthStatus {
+  owner_set: boolean;
+  signed_in: boolean;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(path, {
       ...init,
+      // The session cookie is HttpOnly; the browser sends it, page scripts never see it.
+      credentials: "same-origin",
       headers: {
         "Content-Type": "application/json",
         ...(init?.headers ?? {}),
@@ -24,6 +33,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     });
   } catch {
     throw new Error("Cannot reach the BudgetFlow API. Start the backend on port 8000.");
+  }
+  if (response.status === 401 && !path.startsWith("/api/auth/")) {
+    // The session ended (signed out elsewhere, idle timeout, or expiry): show the sign-in screen.
+    window.dispatchEvent(new Event(SIGNED_OUT_EVENT));
   }
   if (!response.ok) {
     let detail = "Request failed.";
@@ -47,6 +60,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  authStatus: () => request<AuthStatus>("/api/auth/status"),
+  createPassphrase: (passphrase: string) =>
+    request<AuthStatus>("/api/auth/setup", { method: "POST", body: JSON.stringify({ passphrase }) }),
+  signIn: (passphrase: string) =>
+    request<AuthStatus>("/api/auth/login", { method: "POST", body: JSON.stringify({ passphrase }) }),
+  signOut: () => request<void>("/api/auth/logout", { method: "POST" }),
+  changePassphrase: (currentPassphrase: string, newPassphrase: string) =>
+    request<AuthStatus>("/api/auth/change-passphrase", {
+      method: "POST",
+      body: JSON.stringify({ current_passphrase: currentPassphrase, new_passphrase: newPassphrase }),
+    }),
   app: () => request<AppInfo>("/api/app"),
   dashboard: (year: number, month: number, accountId?: number) => {
     const params = new URLSearchParams({ year: String(year), month: String(month) });

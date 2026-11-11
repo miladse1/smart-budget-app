@@ -26,6 +26,7 @@ def seed_categories(db: Session) -> None:
 
 
 def get_local_user(db: Session) -> User:
+    """The owner's profile row. All budgets, accounts, and transactions belong to it."""
     user = db.query(User).filter(User.email == LOCAL_USER_EMAIL).one_or_none()
     created = False
     if user is None:
@@ -38,6 +39,14 @@ def get_local_user(db: Session) -> User:
         created = True
     if created:
         db.commit()
+        db.refresh(user)
+    return user
+
+
+def ensure_preference(db: Session, user: User) -> User:
+    if user.preference is None:
+        db.add(UserPreference(user_id=user.id, currency="CAD", budget_start_day=1))
+        db.flush()
         db.refresh(user)
     return user
 

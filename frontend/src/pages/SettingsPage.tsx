@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, CircleCheck, CircleDashed, Database, Download, Link2, Minus, Monitor, Moon, Plus, RotateCcw, Share, SunMedium } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { ChevronRight, CircleCheck, KeyRound, LogOut, CircleDashed, Database, Download, Link2, Minus, Monitor, Moon, Plus, RotateCcw, Share, SunMedium } from "lucide-react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import { Badge, Button, Card, ChoiceGroup, ErrorText, PageTitle, Select, Sheet, Skeleton, useToast } from "../components/ui";
+import { MIN_PASSPHRASE } from "../components/AuthGate";
+import { Badge, Button, Card, ChoiceGroup, ErrorText, Field, PageTitle, Select, Sheet, Skeleton, controlClass, useToast } from "../components/ui";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { canPromptInstall, isInstalled, isIOS, onInstallChange, promptInstall } from "../lib/install";
 import { readTheme, saveTheme, type ThemeChoice } from "../lib/theme";
@@ -219,6 +220,8 @@ export function SettingsPage() {
             </div>
           </Group>
 
+          <SecurityGroup />
+
           <Group title="Appearance">
             <div className="p-4">
               <ChoiceGroup
@@ -323,5 +326,76 @@ export function SettingsPage() {
         }
       />
     </div>
+  );
+}
+
+/** Sign out, and change the passphrase (which signs out every other browser). */
+function SecurityGroup() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [problem, setProblem] = useState("");
+
+  const signOut = useMutation({
+    mutationFn: api.signOut,
+    onSuccess: () => {
+      // Show sign-in first, then drop every cached budget, account, and transaction.
+      queryClient.setQueryData(["auth"], { owner_set: true, signed_in: false });
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "auth" });
+    },
+    onError: (error: Error) => toast("error", error.message),
+  });
+  const change = useMutation({
+    mutationFn: () => api.changePassphrase(current, next),
+    onSuccess: () => {
+      setOpen(false);
+      setCurrent("");
+      setNext("");
+      toast("success", "Passphrase changed. Other browsers were signed out.");
+    },
+    onError: (error: Error) => setProblem(error.message),
+  });
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    setProblem("");
+    if (next.length < MIN_PASSPHRASE) {
+      setProblem(`Use at least ${MIN_PASSPHRASE} characters.`);
+      return;
+    }
+    change.mutate();
+  }
+
+  return (
+    <Group title="Security" footer="You are signed out after an hour without activity, and after 12 hours in any case.">
+      <Row icon={<KeyRound size={17} aria-hidden="true" />} title="Passphrase" detail="Changing it signs out every other browser.">
+        <Button size="sm" variant="secondary" onClick={() => setOpen((value) => !value)}>
+          {open ? "Cancel" : "Change"}
+        </Button>
+      </Row>
+      {open && (
+        <form className="grid gap-3 px-4 py-4" onSubmit={onSubmit} noValidate>
+          <input type="text" name="username" autoComplete="username" value="BudgetFlow owner" readOnly hidden />
+          <Field label="Current passphrase">
+            <input type="password" autoComplete="current-password" maxLength={256} value={current} onChange={(event) => setCurrent(event.target.value)} className={controlClass} />
+          </Field>
+          <Field label="New passphrase" hint={`At least ${MIN_PASSPHRASE} characters.`} error={problem || undefined}>
+            <input type="password" autoComplete="new-password" maxLength={256} value={next} onChange={(event) => setNext(event.target.value)} className={controlClass} />
+          </Field>
+          <div className="flex justify-end">
+            <Button size="sm" type="submit" disabled={change.isPending || !current || !next}>
+              {change.isPending ? "Saving…" : "Save passphrase"}
+            </Button>
+          </div>
+        </form>
+      )}
+      <Row icon={<LogOut size={17} aria-hidden="true" />} title="Sign out" detail="Sign in again with your passphrase.">
+        <Button size="sm" variant="secondary" onClick={() => signOut.mutate()} disabled={signOut.isPending}>
+          Sign out
+        </Button>
+      </Row>
+    </Group>
   );
 }

@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://budgetflow:budgetflow@localhost:5432/budgetflow"
     app_encryption_key: str = ""
     frontend_url: str = "http://localhost:5173"
+    # Host names the API answers to. Other Host headers are refused (DNS-rebinding protection).
+    # Add a tunnel host here only while testing Plaid webhooks.
+    allowed_hosts: str = "localhost,127.0.0.1,backend"
+    # Owner sessions: absolute lifetime and sign-out after inactivity.
+    session_hours: int = 12
+    session_idle_minutes: int = 60
+
+    @property
+    def allowed_host_list(self) -> list[str]:
+        return [host.strip() for host in self.allowed_hosts.split(",") if host.strip()]
 
     @property
     def is_production(self) -> bool:

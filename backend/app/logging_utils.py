@@ -27,7 +27,7 @@ _RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?i)\b(authorization|cookie|set-cookie|plaid-verification)(\"?\s*[:=]\s*\"?)[^\s\",}]+"), rf"\1\2{REDACTED}"),
     # JSON or form fields that carry secrets.
     (
-        re.compile(r"(?i)(\"?(?:secret|client_id|access_token|public_token|link_token|password|api_key)\"?\s*[:=]\s*\"?)[^\s\",}]+"),
+        re.compile(r"(?i)(\"?(?:secret|client_id|access_token|public_token|link_token|password|passphrase|current_passphrase|new_passphrase|api_key|bf_session)\"?\s*[:=]\s*\"?)[^\s\",}]+"),
         rf"\1{REDACTED}",
     ),
     # Passwords inside database or other connection URLs: scheme://user:password@host.

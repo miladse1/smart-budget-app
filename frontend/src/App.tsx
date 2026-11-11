@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api/client";
+import { AuthGate } from "./components/AuthGate";
 import { Layout } from "./components/Layout";
 import { LogoMark } from "./components/Logo";
 import { Button, ToastProvider } from "./components/ui";
@@ -58,6 +59,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
+        <AuthGate>
         <BrowserRouter>
           <OnboardingGate>
             <Routes>
@@ -73,6 +75,7 @@ export function App() {
             </Routes>
           </OnboardingGate>
         </BrowserRouter>
+        </AuthGate>
       </ToastProvider>
     </QueryClientProvider>
   );

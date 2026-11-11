@@ -8,13 +8,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.auth import origin_allowed
 from app.config import configuration_problems, cors_origins, settings
 from app.database import SessionLocal
 from app.logging_utils import configure_logging, request_id_var
 from app.routers.api import router
+from app.routers.auth import router as auth_router
 from app.services.users import get_local_user, seed_categories
 
 logger = logging.getLogger("budgetflow")
@@ -138,6 +141,14 @@ _DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
 
 
 @app.middleware("http")
+async def reject_cross_site_writes(request: Request, call_next):
+    # Session cookies are SameSite=Strict as well; this also covers other sites on localhost.
+    if not origin_allowed(request.method, request.headers.get("origin"), request.headers.get("sec-fetch-site"), cors_origins()):
+        return JSONResponse(status_code=403, content={"detail": "This request did not come from BudgetFlow."})
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def security_headers(request: Request, call_next):
     # A random ID per request ties log lines to a user-visible error reference.
     request_id = uuid.uuid4().hex[:16]
@@ -180,6 +191,9 @@ app.add_middleware(
     max_age=600,
 )
 app.add_middleware(BodySizeLimit)
+# Outermost: refuse requests addressed to any other host name (DNS rebinding).
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_host_list)
+app.include_router(auth_router)
 app.include_router(router)
 
 
