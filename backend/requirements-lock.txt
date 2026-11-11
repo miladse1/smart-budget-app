@@ -25,7 +25,7 @@ mypy_extensions==1.1.0
 nulltype==2.3.1
 packaging==26.3
 pathspec==1.1.1
-plaid-python==44.0.0
+plaid-python==46.0.0
 pluggy==1.6.0
 psycopg==3.3.6
 psycopg-binary==3.3.6
